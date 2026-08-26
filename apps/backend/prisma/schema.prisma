@@ -1,0 +1,71 @@
+// Prisma schema for the Live Monitor Dashboard feature.
+// See specs/001-live-monitor-dashboard/data-model.md,
+// specs/002-dashboard-shell-groups/data-model.md, and
+// specs/003-basic-auth-dashboard-ui/data-model.md for field rationale.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Monitor {
+  id                    String      @id @default(uuid())
+  name                  String
+  type                  String
+  target                String
+  intervalSeconds       Int         @default(60)
+  timeoutSeconds        Int         @default(48)
+  retries               Int         @default(0)
+  retryIntervalSeconds  Int         @default(60)
+  expectedStatusMin     Int?
+  expectedStatusMax     Int?
+  active                Boolean     @default(true)
+  status                String      @default("pending")
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+  heartbeats            Heartbeat[]
+  groupId               String?
+  group                 Group?      @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  basicAuthUsername     String?
+  basicAuthPassword     String?
+  dnsRecordType         String?
+  dnsExpectedValue      String?
+  keyword               String?
+  keywordInvert         Boolean     @default(false)
+  certificateExpiresAt  DateTime?
+}
+
+model Group {
+  id        String    @id @default(uuid())
+  name      String
+  isPublic  Boolean   @default(false)
+  createdAt DateTime  @default(now())
+  monitors  Monitor[]
+}
+
+model Heartbeat {
+  id             String   @id @default(uuid())
+  monitorId      String
+  monitor        Monitor  @relation(fields: [monitorId], references: [id], onDelete: Cascade)
+  timestamp      DateTime @default(now())
+  status         String
+  responseTimeMs Int?
+  message        String
+
+  @@index([monitorId, timestamp])
+}
+
+model NotificationChannel {
+  id             String    @id @default(uuid())
+  name           String
+  type           String    @default("webhook")
+  url            String
+  enabled        Boolean   @default(true)
+  lastDeliveryAt DateTime?
+  lastDeliveryOk Boolean?
+  createdAt      DateTime  @default(now())
+}

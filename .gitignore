@@ -1,0 +1,42 @@
+node_modules/
+dist/
+build/
+coverage/
+*.log
+.env
+.env.*
+!.env.example
+.DS_Store
+Thumbs.db
+*.tmp
+*.swp
+.vscode/
+.idea/
+
+# SQLite dev database
+apps/backend/prisma/*.db
+apps/backend/prisma/*.db-journal
+/data/
+
+# Docker Compose bind-mounted data volume (docker/docker-compose.yml) —
+# `/data/` above is root-anchored and never matches this nested path.
+docker/data/
+
+# AI coding-assistant tooling installed locally for this workspace
+# (vendored spec-kit skill packages per agent backend, OpenCode's own
+# standalone install incl. its own node_modules) — not part of the app,
+# not needed to clone/build/self-host it.
+/.claude/
+/.agents/
+/.opencode/
+/.playwright-mcp/
+/skills-lock.json
+
+# The spec-kit AI-assisted development workflow itself (feature specs,
+# plans, tasks, research notes, and its own scripts/templates/constitution)
+# — this was this project's own internal build process, not something a
+# self-hoster or contributor needs; keeping it out of the public repo also
+# keeps the history focused on the shipped product.
+/.specify/
+/specs/
+/AGENTS.md

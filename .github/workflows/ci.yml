@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  checks:
+    name: Lint, typecheck, and test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm --filter backend prisma:generate
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Build (typechecks shared-types, backend, and frontend)
+        run: pnpm build
+
+      - name: Test
+        run: pnpm test
+
+  docker-build:
+    name: Docker image build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Build-only — verifies the self-hosting install path documented in
+      # README.md still works. No push, no registry login: publishing an
+      # image is a separate decision, not required for someone to clone
+      # and self-host via `docker compose up --build`.
+      - name: Build Docker image
+        run: docker build -f docker/Dockerfile .

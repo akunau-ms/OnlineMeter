@@ -1,0 +1,17 @@
+services:
+  uptime-monitor:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/app/data
+      # Opt-in, off by default (specs/006): uncomment to enable Docker
+      # container monitors. Mounting the Docker socket grants this
+      # container significant control over the host's Docker daemon —
+      # only enable it if you actually use Docker-type monitors.
+      # - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      - DATABASE_URL=file:/app/data/prod.db
+    restart: unless-stopped

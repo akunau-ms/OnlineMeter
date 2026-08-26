@@ -1,0 +1,7 @@
+node_modules
+dist
+build
+coverage
+pnpm-lock.yaml
+apps/backend/prisma/migrations
+apps/frontend/src/components/ui
