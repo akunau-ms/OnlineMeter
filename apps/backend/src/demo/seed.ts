@@ -18,6 +18,11 @@ const SEED_MONITORS = [
     keyword: "Example Domain",
   },
   { name: "GitHub (DNS)", type: "dns", target: "github.com", dnsRecordType: "A" },
+  // Deliberately always down — httpbin.org's own status-code test endpoint
+  // reliably returns 500, so the demo always has one red monitor to show
+  // off the "down" state, rather than depending on a real service's
+  // uncontrollable flakiness.
+  { name: "Broken Endpoint (always down)", type: "http", target: "https://httpbin.org/status/500" },
 ] as const;
 
 /**

@@ -3,7 +3,7 @@ import { createTestApp } from "../helpers/testApp.js";
 import { seedDemoData } from "../../src/demo/seed.js";
 
 describe("seedDemoData (specs/021)", () => {
-  it("seeds one Demo group and 4 monitors into an empty database", async () => {
+  it("seeds one Demo group and 5 monitors into an empty database", async () => {
     const ctx = await createTestApp("test-demo-seed-empty");
     try {
       await seedDemoData(ctx.prisma);
@@ -13,7 +13,7 @@ describe("seedDemoData (specs/021)", () => {
       expect(groups[0]!.name).toBe("Demo");
 
       const monitors = await ctx.prisma.monitor.findMany();
-      expect(monitors).toHaveLength(4);
+      expect(monitors).toHaveLength(5);
       for (const monitor of monitors) {
         expect(monitor.groupId).toBe(groups[0]!.id);
         // FR-008: no sensitive configuration on any seeded monitor.
