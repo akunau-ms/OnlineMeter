@@ -1,7 +1,7 @@
 // Centralized UI copy so a future i18n scaffold (constitution Principle VII)
 // only has to wrap these values, not hunt them down across components.
 export const strings = {
-  appTitle: "Uptime Monitor",
+  appTitle: "OnlineMeter",
   navbar: {
     statusPage: "Status Page",
     settings: "Settings",

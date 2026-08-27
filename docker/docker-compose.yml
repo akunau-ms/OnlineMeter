@@ -1,5 +1,5 @@
 services:
-  uptime-monitor:
+  onlinemeter:
     build:
       context: ..
       dockerfile: docker/Dockerfile
