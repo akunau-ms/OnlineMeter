@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { useQueryClient } from "@tanstack/react-query";
 import type { MonitorListItem, MonitorStatus } from "shared-types";
-import { useDashboardTrend, useMonitors } from "@/services/api";
+import { useConfig, useDashboardTrend, useMonitors } from "@/services/api";
 import { applyStatusPatch, useRealtimeMonitors } from "@/services/realtime";
 import { StatusDot } from "@/components/status-bot/StatusDot";
 import { MonitorForm } from "@/components/monitor-form";
@@ -83,6 +83,8 @@ export function DashboardPage() {
   const [range, setRange] = React.useState<"7d" | "30d">("7d");
   const { data: trend } = useDashboardTrend(range);
   const [showForm, setShowForm] = React.useState(false);
+  const { data: appConfig } = useConfig();
+  const demoMode = appConfig?.demoMode ?? false;
 
   const merged = (monitors ?? []).map((m) => applyStatusPatch(m, statusById));
   const total = merged.length;
@@ -118,6 +120,8 @@ export function DashboardPage() {
             size="sm"
             aria-expanded={showForm}
             aria-controls="monitor-form"
+            disabled={demoMode}
+            title={demoMode ? strings.demo.disabledTitle : undefined}
             onClick={() => setShowForm((v) => !v)}
           >
             {showForm ? strings.dashboard.closeForm : strings.dashboard.addMonitor}
@@ -151,7 +155,7 @@ export function DashboardPage() {
         <Card>
           <CardContent className="flex min-h-64 flex-col items-center justify-center gap-3 py-12 text-center">
             <p className="text-sm text-muted-foreground">{strings.dashboard.empty}</p>
-            {!showForm ? (
+            {!showForm && !demoMode ? (
               <Button size="sm" onClick={() => setShowForm(true)}>
                 {strings.dashboard.addMonitor}
               </Button>

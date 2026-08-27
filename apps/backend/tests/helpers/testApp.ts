@@ -14,7 +14,7 @@ const backendRoot = path.resolve(__dirname, "../..");
  * throwaway SQLite database, migrated via `prisma db push`. Used by contract
  * and integration tests so they exercise the actual wiring, not a mock.
  */
-export async function createTestApp(dbName: string) {
+export async function createTestApp(dbName: string, options?: { demoMode?: boolean }) {
   const dbPath = path.join(backendRoot, "prisma", `${dbName}.db`);
   for (const suffix of ["", "-journal"]) {
     if (fs.existsSync(dbPath + suffix)) fs.rmSync(dbPath + suffix);
@@ -28,7 +28,7 @@ export async function createTestApp(dbName: string) {
   });
 
   const prisma = new PrismaClient({ datasources: { db: { url: databaseUrl } } });
-  const app = buildApp({ prisma, createScheduler });
+  const app = buildApp({ prisma, createScheduler, demoMode: options?.demoMode });
   await app.ready();
 
   return {

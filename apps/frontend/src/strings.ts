@@ -124,6 +124,11 @@ export const strings = {
     deliverySucceeded: "Last delivery succeeded",
     deliveryFailed: "Last delivery failed",
   },
+  demo: {
+    bannerTitle: "Demo",
+    bannerBody: "This is a public read-only demo — changes are disabled.",
+    disabledTitle: "Disabled in demo mode",
+  },
   detail: {
     stats: {
       current: "Response (current)",

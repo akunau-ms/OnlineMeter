@@ -13,6 +13,7 @@ import { groupRoutes } from "./routes/groups.js";
 import { dashboardRoutes } from "./routes/dashboard.js";
 import { publicStatusRoutes } from "./routes/public-status.js";
 import { notificationChannelRoutes } from "./routes/notification-channels.js";
+import { configRoutes } from "./routes/config.js";
 import type { Scheduler } from "./scheduler/index.js";
 
 declare module "fastify" {
@@ -20,18 +21,31 @@ declare module "fastify" {
     prisma: PrismaClient;
     io: AppSocketServer;
     scheduler: Scheduler;
+    /** Read-only demo mode (specs/021) — decorated once at build time so
+     * both the write-blocking hook and GET /api/config read the same
+     * value, without either re-reading `config.ts`/`process.env`. */
+    demoMode: boolean;
   }
 }
 
 export interface BuildAppOptions {
   prisma: PrismaClient;
   createScheduler: (app: FastifyInstance) => Scheduler;
+  /** Read-only demo mode (specs/021) — an explicit option rather than a
+   * bare `config.demoMode` read, so tests can construct both states in
+   * the same run (research.md decision 2). Off by default. */
+  demoMode?: boolean;
 }
 
-export function buildApp({ prisma, createScheduler }: BuildAppOptions): FastifyInstance {
+export function buildApp({
+  prisma,
+  createScheduler,
+  demoMode = false,
+}: BuildAppOptions): FastifyInstance {
   const app = Fastify({ logger: true });
 
   app.decorate("prisma", prisma);
+  app.decorate("demoMode", demoMode);
 
   const io = createRealtimeServer(app.server);
   app.decorate("io", io);
@@ -47,6 +61,19 @@ export function buildApp({ prisma, createScheduler }: BuildAppOptions): FastifyI
     reply.status(statusCode).send({ error: error.message ?? "Internal Server Error" });
   });
 
+  // Read-only demo mode (specs/021): a single method+prefix check covers
+  // every current AND future mutating endpoint (research.md decision 1) —
+  // never trust the client/UI alone (Constitution Principle VI).
+  if (demoMode) {
+    app.addHook("onRequest", async (request, reply) => {
+      if (request.method !== "GET" && request.url.startsWith("/api/")) {
+        return reply
+          .status(403)
+          .send({ error: "This is a read-only demo — changes are disabled." });
+      }
+    });
+  }
+
   app.register(monitorRoutes, { prefix: "/api/monitors" });
   app.register(heartbeatRoutes, { prefix: "/api/monitors" });
   app.register(monitorStatsRoutes, { prefix: "/api/monitors" });
@@ -54,6 +81,7 @@ export function buildApp({ prisma, createScheduler }: BuildAppOptions): FastifyI
   app.register(dashboardRoutes, { prefix: "/api/dashboard" });
   app.register(publicStatusRoutes, { prefix: "/api/public" });
   app.register(notificationChannelRoutes, { prefix: "/api/notification-channels" });
+  app.register(configRoutes, { prefix: "/api/config" });
 
   app.get("/health", async () => ({ status: "ok" }));
 

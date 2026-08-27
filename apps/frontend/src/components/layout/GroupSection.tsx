@@ -2,7 +2,7 @@ import * as React from "react";
 import { Link } from "react-router-dom";
 import { ChevronDown, ChevronRight, Globe, GlobeLock, Pencil, Trash2 } from "lucide-react";
 import type { Group, MonitorListItem } from "shared-types";
-import { useDeleteGroup, useRenameGroup, useSetGroupPublic } from "@/services/api";
+import { useConfig, useDeleteGroup, useRenameGroup, useSetGroupPublic } from "@/services/api";
 import { StatusDot } from "@/components/status-bot/StatusDot";
 import { MonitorHistoryStrip } from "@/components/layout/MonitorHistoryStrip";
 import { Button } from "@/components/ui/button";
@@ -42,6 +42,8 @@ export function GroupSection({
   const renameGroup = useRenameGroup();
   const deleteGroup = useDeleteGroup();
   const setGroupPublic = useSetGroupPublic();
+  const { data: appConfig } = useConfig();
+  const demoMode = appConfig?.demoMode ?? false;
 
   const title = group?.name ?? strings.sidebar.ungrouped;
 
@@ -98,8 +100,13 @@ export function GroupSection({
               }
               aria-pressed={group.isPublic}
               title={
-                group.isPublic ? strings.sidebar.makeGroupPrivate : strings.sidebar.makeGroupPublic
+                demoMode
+                  ? strings.demo.disabledTitle
+                  : group.isPublic
+                    ? strings.sidebar.makeGroupPrivate
+                    : strings.sidebar.makeGroupPublic
               }
+              disabled={demoMode}
               onClick={() =>
                 setGroupPublic.mutate({ id: group.id, name: group.name, isPublic: !group.isPublic })
               }
@@ -115,6 +122,8 @@ export function GroupSection({
               variant="ghost"
               size="icon"
               aria-label={strings.sidebar.renameGroup}
+              title={demoMode ? strings.demo.disabledTitle : undefined}
+              disabled={demoMode}
               onClick={() => {
                 setNameDraft(group.name);
                 setRenaming(true);
@@ -128,6 +137,8 @@ export function GroupSection({
               variant="ghost"
               size="icon"
               aria-label={strings.sidebar.deleteGroup}
+              title={demoMode ? strings.demo.disabledTitle : undefined}
+              disabled={demoMode}
               onClick={() => setDeleteConfirmOpen(true)}
               className="h-7 w-7 rounded p-0.5 text-muted-foreground hover:text-destructive"
             >

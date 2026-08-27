@@ -2,7 +2,7 @@ import * as React from "react";
 import { Link, useParams } from "react-router-dom";
 import { Activity, Search } from "lucide-react";
 import type { MonitorListItem } from "shared-types";
-import { useCreateGroup, useGroups, useMonitors } from "@/services/api";
+import { useConfig, useCreateGroup, useGroups, useMonitors } from "@/services/api";
 import { applyStatusPatch, useRealtimeMonitors } from "@/services/realtime";
 import { GroupSection } from "@/components/layout/GroupSection";
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,8 @@ export function Sidebar() {
   const { data: groups } = useGroups();
   const { statusById } = useRealtimeMonitors();
   const createGroup = useCreateGroup();
+  const { data: appConfig } = useConfig();
+  const demoMode = appConfig?.demoMode ?? false;
 
   const [search, setSearch] = React.useState("");
   const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>({});
@@ -117,7 +119,8 @@ export function Sidebar() {
           type="submit"
           size="sm"
           variant="outline"
-          disabled={createGroup.isPending}
+          disabled={createGroup.isPending || demoMode}
+          title={demoMode ? strings.demo.disabledTitle : undefined}
           className="shrink-0"
         >
           {strings.sidebar.addGroup}

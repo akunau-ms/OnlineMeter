@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: onlinemeter-demo
+    runtime: docker
+    dockerfilePath: ./docker/Dockerfile
+    dockerContext: .
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: DEMO_MODE
+        value: "true"

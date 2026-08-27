@@ -166,6 +166,13 @@ export interface NotificationTestResult {
 
 export type PublicStatusResponse = PublicStatusGroup[];
 
+// --- App config (GET /api/config), specs/021 ---
+
+/** Backs GET /api/config. Currently just the one flag specs/021 adds. */
+export interface AppConfig {
+  demoMode: boolean;
+}
+
 // --- Realtime (Socket.IO) event contract, see contracts/websocket-events.md ---
 
 export interface MonitorListEvent {

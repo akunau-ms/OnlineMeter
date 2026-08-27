@@ -1,6 +1,7 @@
 import * as React from "react";
 import type { NotificationChannel } from "shared-types";
 import {
+  useConfig,
   useCreateNotificationChannel,
   useDeleteNotificationChannel,
   useNotificationChannels,
@@ -40,6 +41,8 @@ function ChannelCard({ channel }: { channel: NotificationChannel }) {
   const updateChannel = useUpdateNotificationChannel();
   const deleteChannel = useDeleteNotificationChannel();
   const [deleteConfirmOpen, setDeleteConfirmOpen] = React.useState(false);
+  const { data: appConfig } = useConfig();
+  const demoMode = appConfig?.demoMode ?? false;
 
   return (
     <Card>
@@ -59,7 +62,8 @@ function ChannelCard({ channel }: { channel: NotificationChannel }) {
             type="button"
             variant="outline"
             size="sm"
-            disabled={testChannel.isPending}
+            disabled={testChannel.isPending || demoMode}
+            title={demoMode ? strings.demo.disabledTitle : undefined}
             onClick={() => testChannel.mutate(channel.id)}
           >
             {testChannel.isPending ? strings.settings.testing : strings.settings.test}
@@ -68,7 +72,8 @@ function ChannelCard({ channel }: { channel: NotificationChannel }) {
             type="button"
             variant="outline"
             size="sm"
-            disabled={updateChannel.isPending}
+            disabled={updateChannel.isPending || demoMode}
+            title={demoMode ? strings.demo.disabledTitle : undefined}
             onClick={() =>
               updateChannel.mutate({ id: channel.id, enabled: !channel.enabled })
             }
@@ -80,6 +85,8 @@ function ChannelCard({ channel }: { channel: NotificationChannel }) {
             variant="ghost"
             size="sm"
             className="text-muted-foreground hover:text-destructive"
+            disabled={demoMode}
+            title={demoMode ? strings.demo.disabledTitle : undefined}
             onClick={() => setDeleteConfirmOpen(true)}
           >
             {strings.settings.delete}
@@ -110,6 +117,8 @@ function AddChannelForm() {
   const [name, setName] = React.useState("");
   const [url, setUrl] = React.useState("");
   const createChannel = useCreateNotificationChannel();
+  const { data: appConfig } = useConfig();
+  const demoMode = appConfig?.demoMode ?? false;
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -147,7 +156,11 @@ function AddChannelForm() {
               required
             />
           </div>
-          <Button type="submit" disabled={createChannel.isPending}>
+          <Button
+            type="submit"
+            disabled={createChannel.isPending || demoMode}
+            title={demoMode ? strings.demo.disabledTitle : undefined}
+          >
             {createChannel.isPending ? strings.settings.adding : strings.settings.addChannel}
           </Button>
         </form>

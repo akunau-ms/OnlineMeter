@@ -1,6 +1,7 @@
 import { Outlet } from "react-router-dom";
 import { Navbar } from "@/components/layout/Navbar";
 import { Sidebar } from "@/components/layout/Sidebar";
+import { DemoBanner } from "@/components/layout/DemoBanner";
 
 /**
  * Persistent app shell (FR-001, FR-002): navbar on top, sidebar + content
@@ -12,6 +13,7 @@ export function AppShell() {
     <div className="flex h-screen min-h-0 w-full flex-col overflow-hidden bg-background lg:flex-row">
       <Sidebar />
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden bg-background">
+        <DemoBanner />
         <Navbar />
         <main className="min-h-0 min-w-0 flex-1 overflow-y-auto">
           <Outlet />

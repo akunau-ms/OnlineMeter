@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import type { Heartbeat } from "shared-types";
 import {
+  useConfig,
   useDeleteMonitor,
   useMonitor,
   useMonitorHeartbeats,
@@ -50,6 +51,8 @@ export function MonitorDetailPage() {
   const pause = usePauseMonitor();
   const resume = useResumeMonitor();
   const deleteMonitor = useDeleteMonitor();
+  const { data: appConfig } = useConfig();
+  const demoMode = appConfig?.demoMode ?? false;
 
   React.useEffect(() => {
     if (initialHeartbeats) setHeartbeats(initialHeartbeats);
@@ -108,6 +111,8 @@ export function MonitorDetailPage() {
             <Button
               variant="outline"
               size="sm"
+              disabled={demoMode}
+              title={demoMode ? strings.demo.disabledTitle : undefined}
               onClick={() => (paused ? resume.mutate(monitor.id) : pause.mutate(monitor.id))}
             >
               {paused ? strings.detail.resume : strings.detail.pause}
@@ -116,6 +121,8 @@ export function MonitorDetailPage() {
               variant="outline"
               size="sm"
               className="text-destructive hover:text-destructive"
+              disabled={demoMode}
+              title={demoMode ? strings.demo.disabledTitle : undefined}
               onClick={() => {
                 if (window.confirm(strings.detail.deleteConfirm)) {
                   deleteMonitor.mutate(monitor.id, { onSuccess: () => navigate("/") });

@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
+  AppConfig,
   DashboardTrendPoint,
   Group,
   GroupInput,
@@ -41,6 +42,20 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
   if (response.status === 204) return undefined as T;
   return (await response.json()) as T;
+}
+
+/**
+ * Whether this instance is a read-only demo (specs/021) — a runtime call,
+ * not a build-time flag, since the same built frontend is served by both
+ * demo and normal deployments. Never changes during a page's lifetime, so
+ * no refetch interval is needed.
+ */
+export function useConfig() {
+  return useQuery({
+    queryKey: ["config"],
+    queryFn: () => request<AppConfig>("/config"),
+    staleTime: Infinity,
+  });
 }
 
 export function useMonitors() {
