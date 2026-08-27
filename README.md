@@ -1,5 +1,9 @@
 # OnlineMeter
 
+🔗 **[Live demo](https://onlinemeter-demo.onrender.com)** — read-only,
+just to look around (it resets periodically and you can't add/change
+anything).
+
 A self-hosted alternative to stuff like UptimeRobot or Uptime Kuma — keep
 an eye on your servers and services without handing the data to anyone
 else.
