@@ -73,10 +73,19 @@ export function useMonitor(id: string | undefined) {
   });
 }
 
-export function useMonitorHeartbeats(id: string | undefined, range: HeartbeatRange = "24h") {
+export type HeartbeatRangeSelection = HeartbeatRange | { from: string; to: string };
+
+export function useMonitorHeartbeats(
+  id: string | undefined,
+  selection: HeartbeatRangeSelection = "24h",
+) {
+  const query =
+    typeof selection === "string"
+      ? `range=${selection}`
+      : `from=${encodeURIComponent(selection.from)}&to=${encodeURIComponent(selection.to)}`;
   return useQuery({
-    queryKey: ["monitors", id, "heartbeats", range],
-    queryFn: () => request<Heartbeat[]>(`/monitors/${id}/heartbeats?range=${range}`),
+    queryKey: ["monitors", id, "heartbeats", selection],
+    queryFn: () => request<Heartbeat[]>(`/monitors/${id}/heartbeats?${query}`),
     enabled: Boolean(id),
   });
 }
