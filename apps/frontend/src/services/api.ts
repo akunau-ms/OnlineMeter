@@ -124,6 +124,34 @@ export function useResumeMonitor() {
   });
 }
 
+export function useUpdateMonitor() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      name,
+      target,
+      intervalSeconds,
+    }: {
+      id: string;
+      name: string;
+      target: string;
+      intervalSeconds: number;
+    }) =>
+      // `type` is deliberately never sent — the backend rejects changing
+      // it after creation, and this feature doesn't expose that (specs/022
+      // research.md decision 1).
+      request<Monitor>(`/monitors/${id}`, {
+        method: "PUT",
+        body: JSON.stringify({ name, target, intervalSeconds }),
+      }),
+    onSuccess: (_data, { id }) => {
+      queryClient.invalidateQueries({ queryKey: ["monitors"] });
+      queryClient.invalidateQueries({ queryKey: ["monitors", id] });
+    },
+  });
+}
+
 export function useDeleteMonitor() {
   const queryClient = useQueryClient();
   return useMutation({
