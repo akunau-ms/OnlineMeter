@@ -150,5 +150,8 @@ export const strings = {
     save: "Save",
     saving: "Saving…",
     cancel: "Cancel",
+    logViewFull: "Full",
+    logViewCondensed: "Condensed",
+    logStreakSummary: (count: number) => `× ${count} checks`,
   },
 } as const;

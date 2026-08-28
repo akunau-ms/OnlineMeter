@@ -20,13 +20,24 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart";
+import { condenseHeartbeats, summarizeGroup } from "@/lib/event-log";
 import { strings } from "@/strings";
+
+type LogViewMode = "full" | "condensed";
+const LOG_VIEW_STORAGE_KEY = "onlinemeter:eventLogView";
+
+function loadLogViewMode(): LogViewMode {
+  if (typeof window === "undefined") return "condensed";
+  const stored = window.localStorage.getItem(LOG_VIEW_STORAGE_KEY);
+  return stored === "full" ? "full" : "condensed";
+}
 
 const EDIT_FIELDS = ["name", "target", "intervalSeconds"] as const;
 
@@ -166,6 +177,7 @@ export function MonitorDetailPage() {
   const resume = useResumeMonitor();
   const deleteMonitor = useDeleteMonitor();
   const [editing, setEditing] = React.useState(false);
+  const [logView, setLogView] = React.useState<LogViewMode>(loadLogViewMode);
 
   React.useEffect(() => {
     if (initialHeartbeats) setHeartbeats(initialHeartbeats);
@@ -324,12 +336,60 @@ export function MonitorDetailPage() {
       </Card>
 
       <Card className="overflow-hidden">
-        <CardHeader className="border-b border-border/60">
+        <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3 border-b border-border/60">
           <CardTitle>{strings.detail.log}</CardTitle>
+          <ToggleGroup
+            type="single"
+            size="sm"
+            value={logView}
+            onValueChange={(value) => {
+              if (!value) return; // ignore attempts to deselect the only pressed item
+              const mode = value as LogViewMode;
+              setLogView(mode);
+              window.localStorage.setItem(LOG_VIEW_STORAGE_KEY, mode);
+            }}
+          >
+            <ToggleGroupItem value="condensed" aria-label={strings.detail.logViewCondensed}>
+              {strings.detail.logViewCondensed}
+            </ToggleGroupItem>
+            <ToggleGroupItem value="full" aria-label={strings.detail.logViewFull}>
+              {strings.detail.logViewFull}
+            </ToggleGroupItem>
+          </ToggleGroup>
         </CardHeader>
         <CardContent>
           {heartbeats.length === 0 ? (
             <p className="text-sm text-muted-foreground">{strings.detail.empty}</p>
+          ) : logView === "condensed" ? (
+            <ul className="flex flex-col text-sm">
+              {[...condenseHeartbeats(heartbeats)].reverse().map((group) => {
+                const summary = summarizeGroup(group);
+                const isStreak = group.entries.length > 1;
+                return (
+                  <li
+                    key={group.entries[group.entries.length - 1].id}
+                    className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 border-b border-border py-3 last:border-0 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1.5fr)]"
+                  >
+                    <span className="truncate text-muted-foreground">
+                      {isStreak
+                        ? `${new Date(summary.earliestTimestamp).toLocaleString()} – ${new Date(summary.latestTimestamp).toLocaleString()}`
+                        : new Date(summary.latestTimestamp).toLocaleString()}
+                    </span>
+                    <span className="flex items-center gap-2">
+                      <StatusBadge status={summary.status} />
+                      {isStreak ? (
+                        <span className="text-xs text-muted-foreground">
+                          {strings.detail.logStreakSummary(summary.count)}
+                        </span>
+                      ) : null}
+                    </span>
+                    <span className="col-span-2 truncate text-left text-muted-foreground sm:col-span-1 sm:text-right">
+                      {summary.message}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
           ) : (
             <ul className="flex flex-col text-sm">
               {[...heartbeats].reverse().map((h) => (
