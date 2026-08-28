@@ -1,7 +1,10 @@
 import * as React from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
+import { CalendarIcon } from "lucide-react";
+import type { DateRange } from "react-day-picker";
 import type { Heartbeat, ValidationFieldError } from "shared-types";
+import type { HeartbeatRange } from "shared-types";
 import {
   ApiValidationError,
   useDeleteMonitor,
@@ -11,6 +14,7 @@ import {
   usePauseMonitor,
   useResumeMonitor,
   useUpdateMonitor,
+  type HeartbeatRangeSelection,
 } from "@/services/api";
 import { useMonitorHeartbeatStream } from "@/services/realtime";
 import { StatusBot } from "@/components/status-bot/StatusBot";
@@ -18,8 +22,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   ChartContainer,
@@ -37,6 +44,30 @@ function loadLogViewMode(): LogViewMode {
   if (typeof window === "undefined") return "condensed";
   const stored = window.localStorage.getItem(LOG_VIEW_STORAGE_KEY);
   return stored === "full" ? "full" : "condensed";
+}
+
+/** The Select's own value — a preset range, or "custom" while the
+ * operator is defining/has defined a custom window (specs/025). Distinct
+ * from the range actually passed to useMonitorHeartbeats: "custom" alone
+ * isn't a fetchable value until Apply produces a validated {from, to}. */
+type RangeMode = HeartbeatRange | "custom";
+
+/** Merges a calendar day with an "HH:mm" time-of-day string. */
+function combineDateAndTime(date: Date, time: string): Date {
+  const [hours, minutes] = time.split(":").map(Number);
+  const combined = new Date(date);
+  combined.setHours(hours || 0, minutes || 0, 0, 0);
+  return combined;
+}
+
+/** specs/025 FR-008: end not before start, and not a period entirely in
+ * the future. Server-side also checks ordering/parseability
+ * independently (research.md decision 3) — this is the fast client-side
+ * guard so the operator never even sends an invalid request. */
+function validateCustomRange(from: Date, to: Date): string | null {
+  if (to.getTime() < from.getTime()) return strings.detail.logRangeErrorOrder;
+  if (from.getTime() > Date.now()) return strings.detail.logRangeErrorFuture;
+  return null;
 }
 
 const EDIT_FIELDS = ["name", "target", "intervalSeconds"] as const;
@@ -171,7 +202,24 @@ export function MonitorDetailPage() {
   const navigate = useNavigate();
   const { data: monitor } = useMonitor(id);
   const { data: stats } = useMonitorStats(id);
-  const { data: initialHeartbeats } = useMonitorHeartbeats(id);
+  // The period selector (specs/025). Resets to "24h" on navigation
+  // rather than persisting (spec Assumptions) — unlike the Event Log's
+  // Full/Condensed toggle, a stale custom range carrying over to a
+  // different monitor could look confusingly empty.
+  const [rangeMode, setRangeMode] = React.useState<RangeMode>("24h");
+  const [draftRange, setDraftRange] = React.useState<DateRange | undefined>(undefined);
+  const [fromTime, setFromTime] = React.useState("00:00");
+  const [toTime, setToTime] = React.useState("23:59");
+  const [rangePopoverOpen, setRangePopoverOpen] = React.useState(false);
+  const [appliedCustomRange, setAppliedCustomRange] = React.useState<{
+    from: string;
+    to: string;
+  } | null>(null);
+  const [customRangeError, setCustomRangeError] = React.useState<string | null>(null);
+
+  const heartbeatSelection: HeartbeatRangeSelection =
+    rangeMode === "custom" && appliedCustomRange ? appliedCustomRange : rangeMode === "custom" ? "24h" : rangeMode;
+  const { data: initialHeartbeats } = useMonitorHeartbeats(id, heartbeatSelection);
   const [heartbeats, setHeartbeats] = React.useState<Heartbeat[]>([]);
   const pause = usePauseMonitor();
   const resume = useResumeMonitor();
@@ -180,10 +228,20 @@ export function MonitorDetailPage() {
   const [logView, setLogView] = React.useState<LogViewMode>(loadLogViewMode);
 
   React.useEffect(() => {
-    if (initialHeartbeats) setHeartbeats(initialHeartbeats);
+    setHeartbeats(initialHeartbeats ?? []);
   }, [initialHeartbeats]);
 
+  // A custom window is a fixed historical range — appending live
+  // updates timestamped "now" would inject data outside it. Preset
+  // ranges always extend to "now", so live updates always belong there.
+  // Tracked via a ref (rather than a closed-over value) because
+  // useMonitorHeartbeatStream's effect only re-subscribes when `id`
+  // changes, so its callback closure would otherwise go stale.
+  const isCustomRangeActive = rangeMode === "custom" && appliedCustomRange !== null;
+  const isCustomRangeActiveRef = React.useRef(isCustomRangeActive);
+  isCustomRangeActiveRef.current = isCustomRangeActive;
   useMonitorHeartbeatStream(id, (heartbeat) => {
+    if (isCustomRangeActiveRef.current) return;
     setHeartbeats((prev) => [...prev, heartbeat]);
   });
 
@@ -293,8 +351,131 @@ export function MonitorDetailPage() {
       </Card>
 
       <Card className="overflow-hidden">
-        <CardHeader className="border-b border-border/60">
+        <CardHeader className="flex flex-col gap-3 border-b border-border/60 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           <CardTitle>{strings.detail.history}</CardTitle>
+          <div className="flex flex-col gap-2 sm:items-end">
+            <div className="flex items-center gap-2">
+              <Label htmlFor="range-select" className="sr-only">
+                {strings.detail.logRangeLabel}
+              </Label>
+              <Select
+                value={rangeMode}
+                onValueChange={(value) => {
+                  const mode = value as RangeMode;
+                  setRangeMode(mode);
+                  setCustomRangeError(null);
+                  if (mode !== "custom") setAppliedCustomRange(null);
+                }}
+              >
+                <SelectTrigger id="range-select" className="h-8 w-[10rem] text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="24h">{strings.detail.logRangeLast24h}</SelectItem>
+                  <SelectItem value="7d">{strings.detail.logRangeLast7d}</SelectItem>
+                  <SelectItem value="30d">{strings.detail.logRangeLast30d}</SelectItem>
+                  <SelectItem value="custom">{strings.detail.logRangeCustom}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {rangeMode === "custom" ? (
+              <div className="flex flex-col items-end gap-2">
+                <Popover
+                  open={rangePopoverOpen}
+                  onOpenChange={(open) => {
+                    setRangePopoverOpen(open);
+                    if (open) setCustomRangeError(null);
+                  }}
+                >
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 justify-start gap-2 text-xs font-normal"
+                    >
+                      <CalendarIcon className="h-3.5 w-3.5" />
+                      {appliedCustomRange
+                        ? `${new Date(appliedCustomRange.from).toLocaleString()} – ${new Date(appliedCustomRange.to).toLocaleString()}`
+                        : strings.detail.logRangeCustom}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto" align="end">
+                    <div className="flex flex-col gap-3">
+                      <Calendar
+                        mode="range"
+                        selected={draftRange}
+                        onSelect={setDraftRange}
+                        numberOfMonths={2}
+                        disabled={{ after: new Date() }}
+                      />
+                      <div className="flex flex-wrap items-center gap-3 border-t border-border/60 pt-3">
+                        <div className="flex items-center gap-1.5">
+                          <Label htmlFor="range-from-time" className="text-xs text-muted-foreground">
+                            {strings.detail.logRangeFrom}
+                          </Label>
+                          <Input
+                            id="range-from-time"
+                            type="time"
+                            className="h-8 w-auto text-xs"
+                            value={fromTime}
+                            onChange={(e) => setFromTime(e.target.value)}
+                          />
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <Label htmlFor="range-to-time" className="text-xs text-muted-foreground">
+                            {strings.detail.logRangeTo}
+                          </Label>
+                          <Input
+                            id="range-to-time"
+                            type="time"
+                            className="h-8 w-auto text-xs"
+                            value={toTime}
+                            onChange={(e) => setToTime(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                      {customRangeError ? (
+                        <p className="text-xs text-destructive">{customRangeError}</p>
+                      ) : null}
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setRangePopoverOpen(false)}
+                        >
+                          {strings.detail.cancel}
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={() => {
+                            if (!draftRange?.from || !draftRange?.to) {
+                              setCustomRangeError(strings.detail.logRangeErrorIncomplete);
+                              return;
+                            }
+                            const from = combineDateAndTime(draftRange.from, fromTime);
+                            const to = combineDateAndTime(draftRange.to, toTime);
+                            const error = validateCustomRange(from, to);
+                            if (error) {
+                              setCustomRangeError(error);
+                              return;
+                            }
+                            setCustomRangeError(null);
+                            setAppliedCustomRange({ from: from.toISOString(), to: to.toISOString() });
+                            setRangePopoverOpen(false);
+                          }}
+                        >
+                          {strings.detail.logRangeApply}
+                        </Button>
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
+            ) : null}
+          </div>
         </CardHeader>
         <CardContent>
           {chartData.length === 0 ? (
