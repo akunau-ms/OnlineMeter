@@ -141,5 +141,9 @@ export const strings = {
     delete: "Delete",
     deleteConfirm:
       "Delete this monitor? Its check history will be deleted too. This cannot be undone.",
+    edit: "Edit",
+    save: "Save",
+    saving: "Saving…",
+    cancel: "Cancel",
   },
 } as const;

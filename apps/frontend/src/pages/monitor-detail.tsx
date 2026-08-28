@@ -1,14 +1,16 @@
 import * as React from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
-import type { Heartbeat } from "shared-types";
+import type { Heartbeat, ValidationFieldError } from "shared-types";
 import {
+  ApiValidationError,
   useDeleteMonitor,
   useMonitor,
   useMonitorHeartbeats,
   useMonitorStats,
   usePauseMonitor,
   useResumeMonitor,
+  useUpdateMonitor,
 } from "@/services/api";
 import { useMonitorHeartbeatStream } from "@/services/realtime";
 import { StatusBot } from "@/components/status-bot/StatusBot";
@@ -16,6 +18,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   ChartContainer,
   ChartTooltip,
@@ -23,6 +27,117 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart";
 import { strings } from "@/strings";
+
+const EDIT_FIELDS = ["name", "target", "intervalSeconds"] as const;
+
+/** Edit action + inline form (specs/022) — name/target/interval only,
+ * never type (research.md decision 1). Reuses the existing PUT endpoint,
+ * so history/stats/log are untouched by a save. */
+function EditMonitorForm({
+  monitorId,
+  initialName,
+  initialTarget,
+  initialIntervalSeconds,
+  onDone,
+}: {
+  monitorId: string;
+  initialName: string;
+  initialTarget: string;
+  initialIntervalSeconds: number;
+  onDone: () => void;
+}) {
+  const [name, setName] = React.useState(initialName);
+  const [target, setTarget] = React.useState(initialTarget);
+  const [intervalSeconds, setIntervalSeconds] = React.useState(initialIntervalSeconds);
+  const [fieldErrors, setFieldErrors] = React.useState<ValidationFieldError[]>([]);
+  const updateMonitor = useUpdateMonitor();
+
+  const errorFor = (field: string) => fieldErrors.find((e) => e.field === field)?.message;
+  // Errors for fields this form doesn't show (e.g. timeoutSeconds, when a
+  // lowered interval conflicts with the monitor's existing timeout) —
+  // surfaced plainly rather than silently dropped (research.md decision 2).
+  const generalErrors = fieldErrors.filter(
+    (e) => !(EDIT_FIELDS as readonly string[]).includes(e.field),
+  );
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setFieldErrors([]);
+    try {
+      await updateMonitor.mutateAsync({ id: monitorId, name, target, intervalSeconds });
+      onDone();
+    } catch (error) {
+      if (error instanceof ApiValidationError) {
+        setFieldErrors(error.fieldErrors);
+      } else {
+        setFieldErrors([{ field: "form", message: (error as Error).message }]);
+      }
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4 border-t border-border/60 pt-4">
+      {generalErrors.map((e) => (
+        <p key={e.field} className="text-sm text-destructive">
+          {e.message}
+        </p>
+      ))}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="edit-name" className="text-xs uppercase tracking-wide text-muted-foreground">
+            {strings.monitorForm.name}
+          </Label>
+          <Input id="edit-name" value={name} onChange={(e) => setName(e.target.value)} required />
+          {errorFor("name") ? <p className="text-xs text-destructive">{errorFor("name")}</p> : null}
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label
+            htmlFor="edit-target"
+            className="text-xs uppercase tracking-wide text-muted-foreground"
+          >
+            {strings.monitorForm.target}
+          </Label>
+          <Input
+            id="edit-target"
+            value={target}
+            onChange={(e) => setTarget(e.target.value)}
+            required
+          />
+          {errorFor("target") ? (
+            <p className="text-xs text-destructive">{errorFor("target")}</p>
+          ) : null}
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label
+            htmlFor="edit-interval"
+            className="text-xs uppercase tracking-wide text-muted-foreground"
+          >
+            {strings.monitorForm.interval}
+          </Label>
+          <Input
+            id="edit-interval"
+            type="number"
+            min={1}
+            value={intervalSeconds}
+            onChange={(e) => setIntervalSeconds(Number(e.target.value))}
+            required
+          />
+          {errorFor("intervalSeconds") ? (
+            <p className="text-xs text-destructive">{errorFor("intervalSeconds")}</p>
+          ) : null}
+        </div>
+      </div>
+      <div className="flex gap-2">
+        <Button type="submit" size="sm" disabled={updateMonitor.isPending}>
+          {updateMonitor.isPending ? strings.detail.saving : strings.detail.save}
+        </Button>
+        <Button type="button" variant="outline" size="sm" onClick={onDone}>
+          {strings.detail.cancel}
+        </Button>
+      </div>
+    </form>
+  );
+}
 
 const responseTimeChartConfig = {
   responseTimeMs: {
@@ -50,6 +165,7 @@ export function MonitorDetailPage() {
   const pause = usePauseMonitor();
   const resume = useResumeMonitor();
   const deleteMonitor = useDeleteMonitor();
+  const [editing, setEditing] = React.useState(false);
 
   React.useEffect(() => {
     if (initialHeartbeats) setHeartbeats(initialHeartbeats);
@@ -112,6 +228,9 @@ export function MonitorDetailPage() {
             >
               {paused ? strings.detail.resume : strings.detail.pause}
             </Button>
+            <Button variant="outline" size="sm" onClick={() => setEditing((v) => !v)}>
+              {strings.detail.edit}
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -125,6 +244,15 @@ export function MonitorDetailPage() {
               {strings.detail.delete}
             </Button>
           </div>
+          {editing ? (
+            <EditMonitorForm
+              monitorId={monitor.id}
+              initialName={monitor.name}
+              initialTarget={monitor.target}
+              initialIntervalSeconds={monitor.intervalSeconds}
+              onDone={() => setEditing(false)}
+            />
+          ) : null}
         </CardContent>
       </Card>
 
