@@ -1,12 +1,13 @@
 import * as React from "react";
 import { Link } from "react-router-dom";
-import { ChevronDown, ChevronRight, Globe, GlobeLock, Pencil, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Globe, GlobeLock, MoreHorizontal } from "lucide-react";
 import type { Group, MonitorListItem } from "shared-types";
 import { useConfig, useDeleteGroup, useRenameGroup, useSetGroupPublic } from "@/services/api";
 import { StatusDot } from "@/components/status-bot/StatusDot";
 import { MonitorHistoryStrip } from "@/components/layout/MonitorHistoryStrip";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,6 +18,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { strings } from "@/strings";
 
@@ -36,8 +44,8 @@ export function GroupSection({
   expanded,
   onToggle,
 }: GroupSectionProps) {
-  const [renaming, setRenaming] = React.useState(false);
   const [nameDraft, setNameDraft] = React.useState(group?.name ?? "");
+  const [renameDialogOpen, setRenameDialogOpen] = React.useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = React.useState(false);
   const renameGroup = useRenameGroup();
   const deleteGroup = useDeleteGroup();
@@ -47,11 +55,19 @@ export function GroupSection({
 
   const title = group?.name ?? strings.sidebar.ungrouped;
 
+  // Deferring the state update by a tick (research.md decision 3) avoids a
+  // known Radix race: closing a DropdownMenu and opening a Dialog/AlertDialog
+  // in the same event tick can make the dialog fail to open or lose focus,
+  // since both fight over returning focus to the trigger on close.
+  function openAfterMenuCloses(open: () => void) {
+    setTimeout(open, 0);
+  }
+
   async function submitRename(e: React.FormEvent) {
     e.preventDefault();
     if (!group || !nameDraft.trim()) return;
     await renameGroup.mutateAsync({ id: group.id, name: nameDraft.trim() });
-    setRenaming(false);
+    setRenameDialogOpen(false);
   }
 
   const sectionId = group ? `group-${group.id}` : "group-ungrouped";
@@ -73,77 +89,93 @@ export function GroupSection({
           ) : (
             <ChevronRight className="h-3.5 w-3.5" />
           )}
-          {renaming ? null : (
-            <span className="truncate">
-              {title} ({monitors.length})
-            </span>
-          )}
+          <span className="truncate">
+            {title} ({monitors.length})
+          </span>
         </Button>
-        {renaming ? (
-          <form onSubmit={submitRename} className="flex flex-1 items-center gap-1">
-            <Input
-              autoFocus
-              value={nameDraft}
-              onChange={(e) => setNameDraft(e.target.value)}
-              onBlur={() => setRenaming(false)}
-              className="h-8 flex-1 text-xs"
-            />
-          </form>
-        ) : group ? (
-          <span className="flex shrink-0 items-center gap-0.5 opacity-100 transition-opacity sm:opacity-0 sm:group-hover/section:opacity-100 sm:group-focus-within/section:opacity-100">
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              aria-label={
-                group.isPublic ? strings.sidebar.makeGroupPrivate : strings.sidebar.makeGroupPublic
-              }
-              aria-pressed={group.isPublic}
-              title={
-                demoMode
-                  ? strings.demo.disabledTitle
-                  : group.isPublic
-                    ? strings.sidebar.makeGroupPrivate
-                    : strings.sidebar.makeGroupPublic
-              }
-              disabled={demoMode}
-              onClick={() =>
-                setGroupPublic.mutate({ id: group.id, name: group.name, isPublic: !group.isPublic })
-              }
-              className={cn(
-                "h-7 w-7 rounded p-0.5 hover:text-foreground",
-                group.isPublic ? "text-primary" : "text-muted-foreground",
-              )}
-            >
-              {group.isPublic ? <Globe className="h-3 w-3" /> : <GlobeLock className="h-3 w-3" />}
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              aria-label={strings.sidebar.renameGroup}
-              title={demoMode ? strings.demo.disabledTitle : undefined}
-              disabled={demoMode}
-              onClick={() => {
-                setNameDraft(group.name);
-                setRenaming(true);
-              }}
-              className="h-7 w-7 rounded p-0.5 text-muted-foreground hover:text-foreground"
-            >
-              <Pencil className="h-3 w-3" />
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              aria-label={strings.sidebar.deleteGroup}
-              title={demoMode ? strings.demo.disabledTitle : undefined}
-              disabled={demoMode}
-              onClick={() => setDeleteConfirmOpen(true)}
-              className="h-7 w-7 rounded p-0.5 text-muted-foreground hover:text-destructive"
-            >
-              <Trash2 className="h-3 w-3" />
-            </Button>
+        {group ? (
+          <span className="flex shrink-0 items-center opacity-100 transition-opacity sm:opacity-0 sm:group-hover/section:opacity-100 sm:group-focus-within/section:opacity-100">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label={strings.sidebar.groupActions}
+                  className="h-7 w-7 rounded p-0.5 text-muted-foreground hover:text-foreground"
+                >
+                  <MoreHorizontal className="h-3.5 w-3.5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  disabled={demoMode}
+                  title={demoMode ? strings.demo.disabledTitle : undefined}
+                  onSelect={() =>
+                    setGroupPublic.mutate({
+                      id: group.id,
+                      name: group.name,
+                      isPublic: !group.isPublic,
+                    })
+                  }
+                >
+                  {group.isPublic ? (
+                    <GlobeLock className="h-3.5 w-3.5" />
+                  ) : (
+                    <Globe className="h-3.5 w-3.5" />
+                  )}
+                  {group.isPublic ? strings.sidebar.makeGroupPrivate : strings.sidebar.makeGroupPublic}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={demoMode}
+                  title={demoMode ? strings.demo.disabledTitle : undefined}
+                  onSelect={(e) => {
+                    e.preventDefault();
+                    openAfterMenuCloses(() => {
+                      setNameDraft(group.name);
+                      setRenameDialogOpen(true);
+                    });
+                  }}
+                >
+                  {strings.sidebar.renameGroup}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  variant="destructive"
+                  disabled={demoMode}
+                  title={demoMode ? strings.demo.disabledTitle : undefined}
+                  onSelect={(e) => {
+                    e.preventDefault();
+                    openAfterMenuCloses(() => setDeleteConfirmOpen(true));
+                  }}
+                >
+                  {strings.sidebar.deleteGroup}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Dialog open={renameDialogOpen} onOpenChange={setRenameDialogOpen}>
+              <DialogContent aria-describedby={undefined}>
+                <DialogHeader>
+                  <DialogTitle>{strings.sidebar.renameDialogTitle}</DialogTitle>
+                </DialogHeader>
+                <form onSubmit={submitRename} className="flex flex-col gap-4">
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor={`${sectionId}-rename`}>{strings.sidebar.renameDialogLabel}</Label>
+                    <Input
+                      id={`${sectionId}-rename`}
+                      autoFocus
+                      value={nameDraft}
+                      onChange={(e) => setNameDraft(e.target.value)}
+                    />
+                  </div>
+                  <DialogFooter>
+                    <Button type="button" variant="outline" onClick={() => setRenameDialogOpen(false)}>
+                      {strings.sidebar.renameDialogCancel}
+                    </Button>
+                    <Button type="submit">{strings.sidebar.renameDialogSave}</Button>
+                  </DialogFooter>
+                </form>
+              </DialogContent>
+            </Dialog>
             <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
               <AlertDialogContent>
                 <AlertDialogHeader>
