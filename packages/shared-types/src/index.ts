@@ -173,6 +173,96 @@ export interface AppConfig {
   demoMode: boolean;
 }
 
+// --- Custom dashboards & trigger widgets (specs/027) ---
+
+export type TriggerType =
+  | "status_down"
+  | "down_duration_minutes"
+  | "response_time_ms"
+  | "certificate_expiry_days"
+  | "docker_check_failing"
+  | "uptime_below_percent";
+
+/** Which monitor types each trigger type may be attached to (data-model.md, FR-004). */
+export const TRIGGER_APPLICABLE_MONITOR_TYPES: Record<TriggerType, MonitorType[] | "all"> = {
+  status_down: "all",
+  down_duration_minutes: "all",
+  response_time_ms: "all",
+  certificate_expiry_days: ["http", "keyword"],
+  docker_check_failing: ["docker"],
+  uptime_below_percent: "all",
+};
+
+/** Trigger types that require a numeric `thresholdValue` (data-model.md). */
+export const TRIGGER_TYPES_WITH_THRESHOLD: TriggerType[] = [
+  "down_duration_minutes",
+  "response_time_ms",
+  "certificate_expiry_days",
+  "uptime_below_percent",
+];
+
+// --- Dashboard widget severity levels (specs/028) ---
+
+export type TriggerSeverity = "normal" | "warning" | "critical";
+
+export type TriggerDirection = "higher-is-worse" | "lower-is-worse" | "boolean";
+
+/**
+ * Whether a bigger or a smaller number is the more severe one for each
+ * threshold-based trigger type, shared between validation (ordering) and
+ * evaluation (which threshold to check first) — specs/028 research.md
+ * decision 1/4.
+ */
+export const TRIGGER_SEVERITY_DIRECTION: Record<TriggerType, TriggerDirection> = {
+  status_down: "boolean",
+  down_duration_minutes: "higher-is-worse",
+  response_time_ms: "higher-is-worse",
+  certificate_expiry_days: "lower-is-worse",
+  docker_check_failing: "boolean",
+  uptime_below_percent: "lower-is-worse",
+};
+
+export interface Dashboard {
+  id: string;
+  name: string;
+  createdAt: string;
+}
+
+export interface DashboardInput {
+  name: string;
+}
+
+export interface DashboardWidgetInput {
+  monitorId: string;
+  triggerType: TriggerType;
+  warningThreshold?: number | null;
+  criticalThreshold?: number | null;
+}
+
+/** GET /api/dashboards/:id widget shape — deliberately narrower than Monitor (specs/027 data-model.md). */
+export interface DashboardWidgetView {
+  id: string;
+  triggerType: TriggerType;
+  warningThreshold: number | null;
+  criticalThreshold: number | null;
+  position: number;
+  monitor: {
+    id: string;
+    name: string;
+    type: MonitorType;
+    status: MonitorStatus;
+    active: boolean;
+    /** Most recent checks, bounded to 20, chronological order (specs/028). */
+    recentHeartbeats: { timestamp: string; status: HeartbeatStatus }[];
+  };
+  /** Server-computed at read time from the trigger dispatcher. Never accepted on write. */
+  severity: TriggerSeverity;
+}
+
+export interface DashboardDetail extends Dashboard {
+  widgets: DashboardWidgetView[];
+}
+
 // --- Realtime (Socket.IO) event contract, see contracts/websocket-events.md ---
 
 export interface MonitorListEvent {

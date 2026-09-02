@@ -25,6 +25,7 @@ model Monitor {
   expectedStatusMax     Int?
   active                Boolean     @default(true)
   status                String      @default("pending")
+  statusSince           DateTime    @default(now())
   createdAt             DateTime    @default(now())
   updatedAt             DateTime    @updatedAt
   heartbeats            Heartbeat[]
@@ -37,6 +38,7 @@ model Monitor {
   keyword               String?
   keywordInvert         Boolean     @default(false)
   certificateExpiresAt  DateTime?
+  dashboardWidgets      DashboardWidget[]
 }
 
 model Group {
@@ -67,5 +69,26 @@ model NotificationChannel {
   enabled        Boolean   @default(true)
   lastDeliveryAt DateTime?
   lastDeliveryOk Boolean?
+  createdAt      DateTime  @default(now())
+}
+
+// specs/027-custom-dashboards
+model Dashboard {
+  id        String            @id @default(uuid())
+  name      String
+  createdAt DateTime          @default(now())
+  widgets   DashboardWidget[]
+}
+
+model DashboardWidget {
+  id             String    @id @default(uuid())
+  dashboardId    String
+  dashboard      Dashboard @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
+  monitorId      String
+  monitor        Monitor   @relation(fields: [monitorId], references: [id], onDelete: Cascade)
+  triggerType    String
+  warningThreshold  Int?
+  criticalThreshold Int?
+  position       Int
   createdAt      DateTime  @default(now())
 }

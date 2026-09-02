@@ -4,6 +4,7 @@ export const strings = {
   appTitle: "OnlineMeter",
   navbar: {
     statusPage: "Status Page",
+    dashboards: "Dashboards",
     settings: "Settings",
   },
   theme: {
@@ -108,6 +109,58 @@ export const strings = {
     title: "Status",
     subtitle: "Current status of publicly shared monitors",
     empty: "No public status information is currently available.",
+  },
+  dashboards: {
+    title: "Dashboards",
+    subtitle: "Build focused views of your monitors, each with its own triggers",
+    empty: "No dashboards yet. Create one to get started.",
+    newDashboard: "New dashboard",
+    createDialogTitle: "New dashboard",
+    nameLabel: "Name",
+    create: "Create",
+    creating: "Creating…",
+    rename: "Rename",
+    renameDialogTitle: "Rename dashboard",
+    renaming: "Saving…",
+    delete: "Delete",
+    deleteDialogTitle: "Delete dashboard",
+    deleteConfirm:
+      "Delete this dashboard? Its widgets will be removed. Monitors themselves are never affected.",
+    deleteAction: "Delete",
+    deleteCancel: "Cancel",
+    addWidget: "Add widget",
+    addWidgetDialogTitle: "Add widget",
+    monitorLabel: "Monitor",
+    triggerLabel: "Trigger",
+    warningThresholdLabel: "Warning",
+    criticalThresholdLabel: "Critical",
+    removeWidget: "Remove",
+    widgetEmpty: "No widgets yet. Add one to start watching a monitor here.",
+    problem: "Critical",
+    warning: "Warning",
+    normal: "Normal",
+    paused: "Paused",
+    trigger: {
+      status_down: "Status down",
+      down_duration_minutes: "Down for longer than (minutes)",
+      response_time_ms: "Response time above (ms)",
+      certificate_expiry_days: "Certificate expires within (days)",
+      docker_check_failing: "Docker check failing",
+      uptime_below_percent: "Uptime (24h) below (%)",
+    },
+    triggerDescription: {
+      status_down: "Flags this widget the moment the monitor reports it's down.",
+      down_duration_minutes:
+        "Flags this widget once the monitor has been continuously down for a while — useful to avoid alerting on brief blips.",
+      response_time_ms:
+        "Flags this widget when responses start taking too long, even if the monitor is technically still up.",
+      certificate_expiry_days:
+        "Flags this widget as its HTTPS certificate's expiry date approaches, so you can renew it in time.",
+      docker_check_failing:
+        "Flags this widget when the Docker container this monitor checks stops responding.",
+      uptime_below_percent:
+        "Flags this widget when its reliability over the last 24 hours drops below what you'd expect.",
+    },
   },
   settings: {
     title: "Settings",

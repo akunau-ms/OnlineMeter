@@ -1,10 +1,12 @@
 import type {
+  Dashboard as PrismaDashboard,
   Group as PrismaGroup,
   Heartbeat as PrismaHeartbeat,
   Monitor as PrismaMonitor,
   NotificationChannel as PrismaNotificationChannel,
 } from "@prisma/client";
 import type {
+  Dashboard,
   Group,
   Heartbeat,
   Monitor,
@@ -126,6 +128,14 @@ export function toPublicStatusGroupDTO(g: PublicGroupSelection): PublicStatusGro
     id: g.id,
     name: g.name,
     monitors: g.monitors.map(toPublicStatusMonitorDTO),
+  };
+}
+
+export function toDashboardDTO(d: PrismaDashboard): Dashboard {
+  return {
+    id: d.id,
+    name: d.name,
+    createdAt: d.createdAt.toISOString(),
   };
 }
 

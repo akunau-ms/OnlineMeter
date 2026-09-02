@@ -19,6 +19,7 @@ function makeMonitor(overrides: Partial<PrismaMonitor> = {}): PrismaMonitor {
     expectedStatusMax: 299,
     active: true,
     status: "pending",
+    statusSince: now,
     createdAt: now,
     updatedAt: now,
     ...overrides,
@@ -239,6 +240,51 @@ describe("Scheduler", () => {
     expect(onStatusChange).toHaveBeenCalledOnce();
     // ...but the notification-specific hook must not.
     expect(onNotifiableStatusChange).not.toHaveBeenCalled();
+  });
+
+  it("writes statusSince to now on a genuine status transition (specs/027 research.md decision 2)", async () => {
+    const oldStatusSince = new Date("2020-01-01T00:00:00.000Z");
+    const initial = makeMonitor({ status: "up", statusSince: oldStatusSince });
+    const { prisma, getMonitor } = makeFakePrisma(initial);
+    const checker: MonitorChecker = {
+      type: "http",
+      check: vi.fn().mockResolvedValue({ status: "down", responseTimeMs: null, message: "fail" }),
+    };
+    const scheduler = new Scheduler({
+      prisma,
+      checkers: { http: checker, tcp: checker, ping: checker },
+      onHeartbeat: vi.fn(),
+      onStatusChange: vi.fn(),
+      sleep: async () => {},
+    });
+
+    const before = Date.now();
+    await scheduler.runCheckNow("m1");
+
+    expect(getMonitor().status).toBe("down");
+    expect((getMonitor().statusSince as Date).getTime()).toBeGreaterThanOrEqual(before);
+  });
+
+  it("leaves statusSince untouched when the status does not change (specs/027 research.md decision 2)", async () => {
+    const unchangedStatusSince = new Date("2020-01-01T00:00:00.000Z");
+    const initial = makeMonitor({ status: "up", statusSince: unchangedStatusSince });
+    const { prisma, getMonitor } = makeFakePrisma(initial);
+    const checker: MonitorChecker = {
+      type: "http",
+      check: vi.fn().mockResolvedValue({ status: "up", responseTimeMs: 5, message: "OK" }),
+    };
+    const scheduler = new Scheduler({
+      prisma,
+      checkers: { http: checker, tcp: checker, ping: checker },
+      onHeartbeat: vi.fn(),
+      onStatusChange: vi.fn(),
+      sleep: async () => {},
+    });
+
+    await scheduler.runCheckNow("m1");
+
+    expect(getMonitor().status).toBe("up");
+    expect(getMonitor().statusSince).toBe(unchangedStatusSince);
   });
 });
 

@@ -1,4 +1,4 @@
-import { Radio, Settings as SettingsIcon } from "lucide-react";
+import { LayoutDashboard, Radio, Settings as SettingsIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { strings } from "@/strings";
@@ -20,6 +20,14 @@ export function Navbar() {
           >
             <Radio className="h-4 w-4" />
             <span className="hidden sm:inline">{strings.navbar.statusPage}</span>
+          </Link>
+          <Link
+            to="/dashboards"
+            className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:px-3"
+            aria-label={strings.navbar.dashboards}
+          >
+            <LayoutDashboard className="h-4 w-4" />
+            <span className="hidden sm:inline">{strings.navbar.dashboards}</span>
           </Link>
           <Link
             to="/settings"
