@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MonitorHistoryStrip } from "@/components/layout/MonitorHistoryStrip";
+import { useConfig } from "@/services/api";
 import { strings } from "@/strings";
 import { cn } from "@/lib/utils";
 
@@ -21,6 +22,8 @@ export interface DashboardWidgetCardProps {
 export function DashboardWidgetCard({ widget, onRemove }: DashboardWidgetCardProps) {
   const paused = !widget.monitor.active;
   const triggerLabel = strings.dashboards.trigger[widget.triggerType];
+  const { data: appConfig } = useConfig();
+  const demoMode = appConfig?.demoMode ?? false;
   const threshold =
     widget.criticalThreshold !== null
       ? widget.criticalThreshold
@@ -66,7 +69,14 @@ export function DashboardWidgetCard({ widget, onRemove }: DashboardWidgetCardPro
       <CardContent className="flex flex-col gap-3">
         <MonitorHistoryStrip recentHeartbeats={widget.monitor.recentHeartbeats} />
         <div className="flex justify-end">
-          <Button type="button" variant="ghost" size="sm" onClick={onRemove}>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            disabled={demoMode}
+            title={demoMode ? strings.demo.disabledTitle : undefined}
+            onClick={onRemove}
+          >
             {strings.dashboards.removeWidget}
           </Button>
         </div>

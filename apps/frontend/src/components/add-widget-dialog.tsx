@@ -21,7 +21,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { useAddWidget, useMonitors } from "@/services/api";
+import { useAddWidget, useConfig, useMonitors } from "@/services/api";
 import { strings } from "@/strings";
 
 const ALL_TRIGGER_TYPES = Object.keys(TRIGGER_APPLICABLE_MONITOR_TYPES) as TriggerType[];
@@ -50,6 +50,8 @@ export interface AddWidgetDialogProps {
 export function AddWidgetDialog({ dashboardId, open, onOpenChange }: AddWidgetDialogProps) {
   const { data: monitors } = useMonitors();
   const addWidget = useAddWidget();
+  const { data: appConfig } = useConfig();
+  const demoMode = appConfig?.demoMode ?? false;
   const [monitorId, setMonitorId] = React.useState<string>("");
   const [triggerType, setTriggerType] = React.useState<TriggerType | "">("");
   const [warningThreshold, setWarningThreshold] = React.useState<string>("");
@@ -185,7 +187,11 @@ export function AddWidgetDialog({ dashboardId, open, onOpenChange }: AddWidgetDi
           ) : null}
 
           <DialogFooter>
-            <Button type="submit" disabled={!monitorId || !triggerType || addWidget.isPending}>
+            <Button
+              type="submit"
+              disabled={!monitorId || !triggerType || addWidget.isPending || demoMode}
+              title={demoMode ? strings.demo.disabledTitle : undefined}
+            >
               {strings.dashboards.addWidget}
             </Button>
           </DialogFooter>

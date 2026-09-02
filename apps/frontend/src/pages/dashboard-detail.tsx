@@ -16,6 +16,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
+  useConfig,
   useDashboard,
   useDeleteDashboard,
   useRemoveWidget,
@@ -32,6 +33,8 @@ export function DashboardDetailPage() {
   const renameDashboard = useRenameDashboard();
   const deleteDashboard = useDeleteDashboard();
   const { statusById, lastHeartbeats } = useRealtimeMonitors();
+  const { data: appConfig } = useConfig();
+  const demoMode = appConfig?.demoMode ?? false;
 
   const [addWidgetOpen, setAddWidgetOpen] = React.useState(false);
   const [renaming, setRenaming] = React.useState(false);
@@ -68,7 +71,7 @@ export function DashboardDetailPage() {
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-8 sm:px-6">
       <header className="flex flex-wrap items-center justify-between gap-4">
-        {renaming ? (
+        {renaming && !demoMode ? (
           <form
             className="flex items-center gap-2"
             onSubmit={async (e) => {
@@ -92,7 +95,14 @@ export function DashboardDetailPage() {
           <h1 className="text-lg font-semibold">{dashboard.name}</h1>
         )}
         <div className="flex items-center gap-2">
-          <Button type="button" variant="outline" size="sm" onClick={() => setAddWidgetOpen(true)}>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={demoMode}
+            title={demoMode ? strings.demo.disabledTitle : undefined}
+            onClick={() => setAddWidgetOpen(true)}
+          >
             {strings.dashboards.addWidget}
           </Button>
           {!renaming ? (
@@ -100,6 +110,8 @@ export function DashboardDetailPage() {
               type="button"
               variant="outline"
               size="sm"
+              disabled={demoMode}
+              title={demoMode ? strings.demo.disabledTitle : undefined}
               onClick={() => {
                 setName(dashboard.name);
                 setRenaming(true);
@@ -113,6 +125,8 @@ export function DashboardDetailPage() {
             variant="ghost"
             size="sm"
             className="text-muted-foreground hover:text-destructive"
+            disabled={demoMode}
+            title={demoMode ? strings.demo.disabledTitle : undefined}
             onClick={() => setDeleteConfirmOpen(true)}
           >
             {strings.dashboards.delete}

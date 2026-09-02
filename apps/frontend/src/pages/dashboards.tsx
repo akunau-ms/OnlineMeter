@@ -11,7 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { useCreateDashboard, useDashboards } from "@/services/api";
+import { useConfig, useCreateDashboard, useDashboards } from "@/services/api";
 import { strings } from "@/strings";
 
 function CreateDashboardDialog({
@@ -23,6 +23,8 @@ function CreateDashboardDialog({
 }) {
   const [name, setName] = React.useState("");
   const createDashboard = useCreateDashboard();
+  const { data: appConfig } = useConfig();
+  const demoMode = appConfig?.demoMode ?? false;
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -50,7 +52,11 @@ function CreateDashboardDialog({
             />
           </div>
           <DialogFooter>
-            <Button type="submit" disabled={createDashboard.isPending}>
+            <Button
+              type="submit"
+              disabled={createDashboard.isPending || demoMode}
+              title={demoMode ? strings.demo.disabledTitle : undefined}
+            >
               {createDashboard.isPending ? strings.dashboards.creating : strings.dashboards.create}
             </Button>
           </DialogFooter>
@@ -63,6 +69,8 @@ function CreateDashboardDialog({
 export function DashboardsPage() {
   const { data: dashboards, isLoading } = useDashboards();
   const [createOpen, setCreateOpen] = React.useState(false);
+  const { data: appConfig } = useConfig();
+  const demoMode = appConfig?.demoMode ?? false;
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-8 sm:px-6">
@@ -71,7 +79,12 @@ export function DashboardsPage() {
           <h1 className="text-lg font-semibold">{strings.dashboards.title}</h1>
           <p className="text-sm text-muted-foreground">{strings.dashboards.subtitle}</p>
         </div>
-        <Button type="button" onClick={() => setCreateOpen(true)}>
+        <Button
+          type="button"
+          disabled={demoMode}
+          title={demoMode ? strings.demo.disabledTitle : undefined}
+          onClick={() => setCreateOpen(true)}
+        >
           {strings.dashboards.newDashboard}
         </Button>
       </header>

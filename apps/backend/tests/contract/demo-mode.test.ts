@@ -13,6 +13,7 @@ describe("demo mode write-blocking (specs/021)", () => {
     let monitorId: string;
     let groupId: string;
     let channelId: string;
+    let dashboardId: string;
 
     beforeAll(async () => {
       ctx = await createTestApp("test-demo-mode-on", { demoMode: true });
@@ -31,6 +32,11 @@ describe("demo mode write-blocking (specs/021)", () => {
         data: { name: "Fixture Channel", url: "https://example.com/hook" },
       });
       channelId = channel.id;
+      const dashboard = await prisma.dashboard.create({ data: { name: "Fixture Dashboard" } });
+      dashboardId = dashboard.id;
+      await prisma.dashboardWidget.create({
+        data: { dashboardId, monitorId, triggerType: "status_down", position: 0 },
+      });
     });
 
     afterAll(async () => {
@@ -106,6 +112,33 @@ describe("demo mode write-blocking (specs/021)", () => {
       expect(del.statusCode).toBe(403);
     });
 
+    it("blocks every dashboard write, including widget sub-resources (specs/027-029)", async () => {
+      const create = await app.inject({
+        method: "POST",
+        url: "/api/dashboards",
+        payload: { name: "x" },
+      });
+      expect(create.statusCode).toBe(403);
+      expect(create.json()).toEqual({ error: READ_ONLY_ERROR });
+
+      const update = await app.inject({
+        method: "PUT",
+        url: `/api/dashboards/${dashboardId}`,
+        payload: { name: "changed" },
+      });
+      expect(update.statusCode).toBe(403);
+
+      const addWidget = await app.inject({
+        method: "POST",
+        url: `/api/dashboards/${dashboardId}/widgets`,
+        payload: { monitorId, triggerType: "status_down" },
+      });
+      expect(addWidget.statusCode).toBe(403);
+
+      const del = await app.inject({ method: "DELETE", url: `/api/dashboards/${dashboardId}` });
+      expect(del.statusCode).toBe(403);
+    });
+
     it("leaves every read endpoint fully working", async () => {
       const monitors = await app.inject({ method: "GET", url: "/api/monitors" });
       expect(monitors.statusCode).toBe(200);
@@ -121,6 +154,17 @@ describe("demo mode write-blocking (specs/021)", () => {
 
       const publicStatus = await app.inject({ method: "GET", url: "/api/public/status" });
       expect(publicStatus.statusCode).toBe(200);
+
+      const dashboards = await app.inject({ method: "GET", url: "/api/dashboards" });
+      expect(dashboards.statusCode).toBe(200);
+      expect(dashboards.json()).toHaveLength(1);
+
+      const dashboardDetail = await app.inject({
+        method: "GET",
+        url: `/api/dashboards/${dashboardId}`,
+      });
+      expect(dashboardDetail.statusCode).toBe(200);
+      expect(dashboardDetail.json().widgets).toHaveLength(1);
     });
   });
 

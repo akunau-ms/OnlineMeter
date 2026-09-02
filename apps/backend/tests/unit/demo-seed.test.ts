@@ -25,6 +25,27 @@ describe("seedDemoData (specs/021)", () => {
     }
   });
 
+  it("also seeds a sample dashboard showing off the trigger/severity feature (specs/027-029)", async () => {
+    const ctx = await createTestApp("test-demo-seed-dashboard");
+    try {
+      await seedDemoData(ctx.prisma);
+
+      const dashboards = await ctx.prisma.dashboard.findMany({
+        include: { widgets: { include: { monitor: true } } },
+      });
+      expect(dashboards).toHaveLength(1);
+      expect(dashboards[0]!.name).toBe("Demo Dashboard");
+      expect(dashboards[0]!.widgets).toHaveLength(4);
+      for (const widget of dashboards[0]!.widgets) {
+        // Every seeded widget must reference a real, just-seeded monitor —
+        // never a dangling id from a typo in SEED_WIDGETS.
+        expect(widget.monitor).not.toBeNull();
+      }
+    } finally {
+      await ctx.cleanup();
+    }
+  });
+
   it("does not duplicate seed data on a non-empty database", async () => {
     const ctx = await createTestApp("test-demo-seed-nonempty");
     try {
