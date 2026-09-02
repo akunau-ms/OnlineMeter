@@ -84,6 +84,8 @@ export const strings = {
     group: "Group",
     interval: "Interval (seconds)",
     timeout: "Timeout (seconds)",
+    retries: "Retries",
+    retryInterval: "Retry interval (seconds)",
     moreOptions: "More options",
     basicAuthHint: "For targets protected by HTTP Basic Authentication.",
     basicAuthUsername: "Username",
