@@ -33,6 +33,16 @@ export function MonitorForm({ onCreated }: { onCreated?: () => void }) {
   const [target, setTarget] = React.useState("");
   const [intervalSeconds, setIntervalSeconds] = React.useState(60);
   const [timeoutSeconds, setTimeoutSeconds] = React.useState(48);
+  const [retries, setRetries] = React.useState(0);
+  // Tracks the person's own edit once they touch this field; until then it
+  // mirrors intervalSeconds, matching the backend's own fallback default
+  // (routes/monitors.ts: retryIntervalSeconds ?? intervalSeconds) so an
+  // untouched field always submits the same effective value either way
+  // (specs/026 research.md decision 2).
+  const [retryIntervalSecondsOverride, setRetryIntervalSecondsOverride] = React.useState<
+    number | null
+  >(null);
+  const retryIntervalSeconds = retryIntervalSecondsOverride ?? intervalSeconds;
   const [groupId, setGroupId] = React.useState<string>("");
   const [basicAuthUsername, setBasicAuthUsername] = React.useState("");
   const [basicAuthPassword, setBasicAuthPassword] = React.useState("");
@@ -57,6 +67,8 @@ export function MonitorForm({ onCreated }: { onCreated?: () => void }) {
       target,
       intervalSeconds,
       timeoutSeconds,
+      retries,
+      retryIntervalSeconds,
       groupId: groupId || null,
       ...(BASIC_AUTH_TYPES.includes(type) && basicAuthUsername && basicAuthPassword
         ? { basicAuthUsername, basicAuthPassword }
@@ -68,6 +80,8 @@ export function MonitorForm({ onCreated }: { onCreated?: () => void }) {
       await createMonitor.mutateAsync(input);
       setName("");
       setTarget("");
+      setRetries(0);
+      setRetryIntervalSecondsOverride(null);
       setBasicAuthUsername("");
       setBasicAuthPassword("");
       setKeyword("");
@@ -341,6 +355,45 @@ export function MonitorForm({ onCreated }: { onCreated?: () => void }) {
           />
           {errorFor("timeoutSeconds") ? (
             <p className="text-xs text-destructive">{errorFor("timeoutSeconds")}</p>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="flex flex-col gap-2">
+          <Label
+            htmlFor="monitor-retries"
+            className="text-xs uppercase tracking-wide text-muted-foreground"
+          >
+            {strings.monitorForm.retries}
+          </Label>
+          <Input
+            id="monitor-retries"
+            type="number"
+            min={0}
+            value={retries}
+            onChange={(e) => setRetries(Number(e.target.value))}
+          />
+          {errorFor("retries") ? (
+            <p className="text-xs text-destructive">{errorFor("retries")}</p>
+          ) : null}
+        </div>
+        <div className="flex flex-col gap-2">
+          <Label
+            htmlFor="monitor-retry-interval"
+            className="text-xs uppercase tracking-wide text-muted-foreground"
+          >
+            {strings.monitorForm.retryInterval}
+          </Label>
+          <Input
+            id="monitor-retry-interval"
+            type="number"
+            min={0}
+            value={retryIntervalSeconds}
+            onChange={(e) => setRetryIntervalSecondsOverride(Number(e.target.value))}
+          />
+          {errorFor("retryIntervalSeconds") ? (
+            <p className="text-xs text-destructive">{errorFor("retryIntervalSeconds")}</p>
           ) : null}
         </div>
       </div>
