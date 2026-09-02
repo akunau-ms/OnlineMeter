@@ -147,7 +147,7 @@ export class Scheduler {
         const updated = await this.deps.prisma.monitor.update({
           where: { id: monitor.id },
           data: {
-            ...(statusChanged ? { status: result.status } : {}),
+            ...(statusChanged ? { status: result.status, statusSince: new Date() } : {}),
             ...(hasCertificateUpdate ? { certificateExpiresAt: result.certificateExpiresAt } : {}),
           },
         });

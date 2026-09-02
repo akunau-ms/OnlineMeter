@@ -11,6 +11,7 @@ import { heartbeatRoutes } from "./routes/heartbeats.js";
 import { monitorStatsRoutes } from "./routes/monitor-stats.js";
 import { groupRoutes } from "./routes/groups.js";
 import { dashboardRoutes } from "./routes/dashboard.js";
+import { dashboardsRoutes } from "./routes/dashboards.js";
 import { publicStatusRoutes } from "./routes/public-status.js";
 import { notificationChannelRoutes } from "./routes/notification-channels.js";
 import type { Scheduler } from "./scheduler/index.js";
@@ -52,6 +53,7 @@ export function buildApp({ prisma, createScheduler }: BuildAppOptions): FastifyI
   app.register(monitorStatsRoutes, { prefix: "/api/monitors" });
   app.register(groupRoutes, { prefix: "/api/groups" });
   app.register(dashboardRoutes, { prefix: "/api/dashboard" });
+  app.register(dashboardsRoutes, { prefix: "/api/dashboards" });
   app.register(publicStatusRoutes, { prefix: "/api/public" });
   app.register(notificationChannelRoutes, { prefix: "/api/notification-channels" });
 

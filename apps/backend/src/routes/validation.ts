@@ -1,8 +1,21 @@
-import type { MonitorInput, ValidationFieldError } from "shared-types";
+import type {
+  DashboardInput,
+  DashboardWidgetInput,
+  MonitorInput,
+  MonitorType,
+  TriggerType,
+  ValidationFieldError,
+} from "shared-types";
+import {
+  TRIGGER_APPLICABLE_MONITOR_TYPES,
+  TRIGGER_SEVERITY_DIRECTION,
+  TRIGGER_TYPES_WITH_THRESHOLD,
+} from "shared-types";
 import { config } from "../config.js";
 
 const MONITOR_TYPES: MonitorInput["type"][] = ["http", "tcp", "ping", "dns", "keyword", "docker"];
 const DNS_RECORD_TYPES = ["A", "AAAA", "CNAME", "MX", "TXT"];
+const TRIGGER_TYPES = Object.keys(TRIGGER_APPLICABLE_MONITOR_TYPES) as TriggerType[];
 
 function isValidTarget(type: MonitorInput["type"], target: string): boolean {
   if (!target.trim()) return false;
@@ -122,6 +135,101 @@ export function validateMonitorInput(input: Partial<MonitorInput>): ValidationFi
     }
   } else if (input.keyword || input.keywordInvert) {
     errors.push({ field: "keyword", message: "Keyword fields only apply to Keyword monitors" });
+  }
+
+  return errors;
+}
+
+/**
+ * Validates a dashboard's `name` (specs/027 data-model.md) — same
+ * non-empty rule as `Group.name`.
+ */
+export function validateDashboardInput(input: Partial<DashboardInput>): ValidationFieldError[] {
+  if (!input.name || !input.name.trim()) {
+    return [{ field: "name", message: "Name must not be empty" }];
+  }
+  return [];
+}
+
+/**
+ * Validates a dashboard widget's trigger configuration against the monitor
+ * it targets (specs/027 data-model.md Validation Rules). Assumes the
+ * monitor itself has already been confirmed to exist (404, not a field
+ * error, per contracts/rest-api.md).
+ */
+export function validateWidgetInput(
+  input: Partial<DashboardWidgetInput>,
+  monitorType: MonitorType,
+): ValidationFieldError[] {
+  const errors: ValidationFieldError[] = [];
+
+  if (!input.triggerType || !TRIGGER_TYPES.includes(input.triggerType)) {
+    errors.push({
+      field: "triggerType",
+      message: `Trigger type must be one of ${TRIGGER_TYPES.join(", ")}`,
+    });
+    return errors; // can't validate applicability/threshold without a known type
+  }
+
+  const applicable = TRIGGER_APPLICABLE_MONITOR_TYPES[input.triggerType];
+  if (applicable !== "all" && !applicable.includes(monitorType)) {
+    errors.push({
+      field: "triggerType",
+      message: `${input.triggerType} does not apply to ${monitorType} monitors`,
+    });
+    return errors;
+  }
+
+  const needsThreshold = TRIGGER_TYPES_WITH_THRESHOLD.includes(input.triggerType);
+  const { warningThreshold, criticalThreshold } = input;
+
+  if (!needsThreshold) {
+    if (
+      (warningThreshold !== null && warningThreshold !== undefined) ||
+      (criticalThreshold !== null && criticalThreshold !== undefined)
+    ) {
+      errors.push({
+        field: "warningThreshold",
+        message: `${input.triggerType} does not use a threshold value`,
+      });
+    }
+    return errors;
+  }
+
+  function validateOne(field: "warningThreshold" | "criticalThreshold", value: number | null | undefined) {
+    if (value === null || value === undefined) return; // optional, see FR-006
+    if (!Number.isInteger(value) || value <= 0) {
+      errors.push({ field, message: "Threshold value must be a whole number greater than 0" });
+    } else if (input.triggerType === "uptime_below_percent" && value > 100) {
+      errors.push({ field, message: "Uptime threshold must be between 1 and 100" });
+    }
+  }
+  validateOne("warningThreshold", warningThreshold);
+  validateOne("criticalThreshold", criticalThreshold);
+  if (errors.length > 0) return errors;
+
+  const hasWarning = warningThreshold !== null && warningThreshold !== undefined;
+  const hasCritical = criticalThreshold !== null && criticalThreshold !== undefined;
+  if (!hasWarning && !hasCritical) {
+    errors.push({
+      field: "criticalThreshold",
+      message: "Set at least one of warningThreshold/criticalThreshold",
+    });
+    return errors;
+  }
+
+  if (hasWarning && hasCritical) {
+    const direction = TRIGGER_SEVERITY_DIRECTION[input.triggerType];
+    const ordered =
+      direction === "higher-is-worse"
+        ? criticalThreshold! > warningThreshold!
+        : criticalThreshold! < warningThreshold!;
+    if (!ordered) {
+      errors.push({
+        field: "warningThreshold",
+        message: "Warning threshold must be less severe than the critical threshold",
+      });
+    }
   }
 
   return errors;

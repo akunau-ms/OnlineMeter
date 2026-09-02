@@ -1,6 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
+  Dashboard,
+  DashboardDetail,
+  DashboardInput,
   DashboardTrendPoint,
+  DashboardWidgetInput,
+  DashboardWidgetView,
   Group,
   GroupInput,
   Heartbeat,
@@ -240,6 +245,79 @@ export function useDeleteNotificationChannel() {
   return useMutation({
     mutationFn: (id: string) => request<void>(`/notification-channels/${id}`, { method: "DELETE" }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notification-channels"] }),
+  });
+}
+
+export function useDashboards() {
+  return useQuery({
+    queryKey: ["dashboards"],
+    queryFn: () => request<Dashboard[]>("/dashboards"),
+  });
+}
+
+export function useDashboard(id: string | undefined) {
+  return useQuery({
+    queryKey: ["dashboards", id],
+    queryFn: () => request<DashboardDetail>(`/dashboards/${id}`),
+    enabled: Boolean(id),
+    // Backstop for the down_duration_minutes trigger, which can flip from
+    // false to true purely from time passing, with no new socket event to
+    // react to (specs/027 research.md decision 3).
+    refetchInterval: 30_000,
+  });
+}
+
+export function useCreateDashboard() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: DashboardInput) =>
+      request<Dashboard>("/dashboards", { method: "POST", body: JSON.stringify(input) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["dashboards"] }),
+  });
+}
+
+export function useRenameDashboard() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, name }: { id: string; name: string }) =>
+      request<Dashboard>(`/dashboards/${id}`, { method: "PUT", body: JSON.stringify({ name }) }),
+    onSuccess: (_data, { id }) => {
+      queryClient.invalidateQueries({ queryKey: ["dashboards"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboards", id] });
+    },
+  });
+}
+
+export function useDeleteDashboard() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => request<void>(`/dashboards/${id}`, { method: "DELETE" }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["dashboards"] }),
+  });
+}
+
+export function useAddWidget() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ dashboardId, ...input }: { dashboardId: string } & DashboardWidgetInput) =>
+      request<DashboardWidgetView>(`/dashboards/${dashboardId}/widgets`, {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
+    onSuccess: (_data, { dashboardId }) => {
+      queryClient.invalidateQueries({ queryKey: ["dashboards", dashboardId] });
+    },
+  });
+}
+
+export function useRemoveWidget() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ dashboardId, widgetId }: { dashboardId: string; widgetId: string }) =>
+      request<void>(`/dashboards/${dashboardId}/widgets/${widgetId}`, { method: "DELETE" }),
+    onSuccess: (_data, { dashboardId }) => {
+      queryClient.invalidateQueries({ queryKey: ["dashboards", dashboardId] });
+    },
   });
 }
 
